@@ -1,0 +1,24 @@
+{
+    "name": "inilim/request",
+    "description": "request",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Inilim\\Request\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "inilim"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": "^8.2",
+        "inilim/query_build": "dev-main"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "@stable"
+    }
+}
