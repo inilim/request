@@ -12,8 +12,8 @@ class Request
     protected ?string $method = null;
     protected ?string $path_query = null;
     protected ?string $uri = null;
-    protected array $server;
-    protected array $parameters;
+    public array $server;
+    public array $parameters;
 
     public function __construct()
     {
