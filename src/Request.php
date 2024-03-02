@@ -7,16 +7,20 @@ use Inilim\QueryBuild\QueryBuild;
 
 class Request
 {
-    protected ?Header $header = null;
+    protected ?array $headers = null;
     protected ?QueryBuild $query_build = null;
     protected ?string $method = null;
     protected ?string $path_query = null;
     protected ?string $uri = null;
+    protected array $server;
+    protected array $parameters;
 
-    public function getHandleHeader(): Header
+    public function __construct()
     {
-        if ($this->header !== null) return $this->header;
-        return $this->header = new Header;
+        $this->server = &$_SERVER;
+        $this->parameters = \array_merge($_GET ?? [], $_POST ?? []);
+        $_GET  = [];
+        $_POST = [];
     }
 
     /**
@@ -24,7 +28,8 @@ class Request
      */
     public function getHeaders(): array
     {
-        return $this->getHandleHeader()->get();
+        if ($this->headers !== null) return $this->headers;
+        return $this->headers = $this->defineHeaders();
     }
 
     public function getMethod(): string
@@ -52,9 +57,39 @@ class Request
     // ___
     // ------------------------------------------------------------------
 
+    /**
+     * @return array<string,string>
+     */
+    protected function defineHeaders(): array
+    {
+        $headers = [];
+
+        if (\function_exists('getallheaders')) {
+            $headers = \getallheaders();
+            if ($headers !== false) {
+                return \array_change_key_case($headers, CASE_LOWER);
+            }
+        }
+
+        foreach ($this->server as $name => $value) {
+            /** @var string $name */
+            if (
+                ($http = \str_starts_with($name, 'HTTP_'))
+                ||
+                $name == 'CONTENT_TYPE' || $name == 'CONTENT_LENGTH'
+            ) {
+                if ($http) $name = \substr($name, 5);
+                $name = \str_replace('_', '-', $name);
+                $headers[$name] = $value;
+            }
+        }
+
+        return \array_change_key_case($headers, CASE_LOWER);
+    }
+
     protected function defineMethod(): string
     {
-        $method = $_SERVER['REQUEST_METHOD'] ?? '';
+        $method = $this->server['REQUEST_METHOD'] ?? '';
 
         if ($method == 'POST') {
             $headers = $this->getHeaders();
@@ -80,6 +115,6 @@ class Request
     protected function getPathAndQuery(): string
     {
         if ($this->path_query !== null) return $this->path_query;
-        return $this->path_query = \rawurldecode($_SERVER['REQUEST_URI'] ?? '');
+        return $this->path_query = \rawurldecode($this->server['REQUEST_URI'] ?? '');
     }
 }
