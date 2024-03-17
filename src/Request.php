@@ -165,7 +165,7 @@ class Request
 
     protected function getInput(): array
     {
-        $value = $this->getRaw();
+        $value = $this->getRawInput();
         if ($value === '') return [];
         if (_json()->isJSON($value)) {
             $value = \json_decode($value, true);
@@ -182,7 +182,7 @@ class Request
         return $inputs;
     }
 
-    protected function getRaw(): string
+    protected function getRawInput(): string
     {
         $value = @\file_get_contents('php://input');
         if ($value === false) return '';
