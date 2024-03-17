@@ -2,7 +2,6 @@
 
 namespace Inilim\Request;
 
-use Inilim\Request\Header;
 use Inilim\QueryBuild\QueryBuild;
 
 class Request
@@ -11,16 +10,62 @@ class Request
     protected ?QueryBuild $query_build = null;
     protected ?string $method = null;
     protected ?string $path_query = null;
-    protected ?string $uri = null;
-    public array $server;
-    public array $parameters;
+    protected ?string $path = null;
+    protected array $server;
+    protected array $parameters;
+    protected array $cookie;
 
     public function __construct()
     {
+        // $_SERVER
+        // $_GET
+        // $_POST
+        // $_FILES
+        // $_COOKIE
+        $this->cookie = $_COOKIE ?? [];
+        $_COOKIE = [];
         $this->server = &$_SERVER;
-        $this->parameters = \array_merge($_GET ?? [], $_POST ?? []);
+        $this->parameters = \array_merge($_GET ?? [], $_POST ?? [], $this->getInput());
         $_GET  = [];
         $_POST = [];
+    }
+
+    /**
+     * @param mixed $default
+     * @return mixed
+     */
+    public function getCookie(int|string $key, $default = null)
+    {
+        return $this->cookie[$key] ?? $default;
+    }
+
+    public function hasCookie(int|string $key): bool
+    {
+        return \array_key_exists($key, $this->cookie);
+    }
+
+    public function getCookies(): array
+    {
+        return $this->cookie;
+    }
+
+    /**
+     * @param mixed $default
+     * @return mixed
+     */
+    public function getParam(int|string $key, $default = null)
+    {
+        return $this->parameters[$key] ?? $default;
+    }
+
+    public function getParams(): array
+    {
+        return $this->parameters;
+    }
+
+    public function hasParam(int|string $key): bool
+    {
+        return \array_key_exists($key, $this->parameters);
     }
 
     /**
@@ -41,10 +86,10 @@ class Request
     /**
      * /any/any...
      */
-    public function getURI(): string
+    public function getPath(): string
     {
-        if ($this->uri !== null) return $this->uri;
-        return $this->uri = $this->defineURI();
+        if ($this->path !== null) return $this->path;
+        return $this->path = $this->definePath();
     }
 
     public function getQueryBuilder(): QueryBuild
@@ -104,7 +149,7 @@ class Request
     /**
      * /any/any...
      */
-    protected function defineURI(): string
+    protected function definePath(): string
     {
         $uri = $this->getPathAndQuery();
         $pos = \strpos($uri, '?');
@@ -116,5 +161,31 @@ class Request
     {
         if ($this->path_query !== null) return $this->path_query;
         return $this->path_query = \rawurldecode($this->server['REQUEST_URI'] ?? '');
+    }
+
+    protected function getInput(): array
+    {
+        $value = $this->getRaw();
+        if ($value === '') return [];
+        if (_json()->isJSON($value)) {
+            $value = \json_decode($value, true);
+            if (!\is_array($value)) $value = [$value];
+            return $value;
+        }
+        $inputs = [];
+        \parse_str($value, $inputs);
+        if (!$inputs) return [];
+        $post_keys = \array_keys($_POST ?? []);
+        if ($post_keys) {
+            $inputs = _arr()->except($inputs, $post_keys);
+        }
+        return $inputs;
+    }
+
+    protected function getRaw(): string
+    {
+        $value = @\file_get_contents('php://input');
+        if ($value === false) return '';
+        return $value;
     }
 }
