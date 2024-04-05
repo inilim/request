@@ -11,24 +11,28 @@ class Request
     protected ?string $method = null;
     protected ?string $path_query = null;
     protected ?string $path = null;
+    protected ?array $path_array = null;
     protected array $server;
     protected array $parameters;
     protected array $cookie;
 
-    public function __construct()
+    public function __construct(bool $clear_global_vars = false)
     {
-        // $_SERVER
-        // $_GET
-        // $_POST
-        // $_FILES
-        // $_COOKIE
-        $this->cookie = $_COOKIE ?? [];
-        $_COOKIE = [];
-        $this->server = &$_SERVER;
+        // $_FILES - что с этим делать?
+
+        $this->cookie     = $_COOKIE ?? [];
+        $this->server     = &$_SERVER;
         $this->parameters = \array_merge($_GET ?? [], $_POST ?? [], $this->getInput());
-        $_GET  = [];
-        $_POST = [];
+        if ($clear_global_vars) {
+            $_COOKIE = [];
+            $_GET    = [];
+            $_POST   = [];
+        }
     }
+
+    // ------------------------------------------------------------------
+    // Cookie
+    // ------------------------------------------------------------------
 
     /**
      * @param mixed $default
@@ -49,6 +53,10 @@ class Request
         return $this->cookie;
     }
 
+    // ------------------------------------------------------------------
+    // Parameters
+    // ------------------------------------------------------------------
+
     /**
      * @param mixed $default
      * @return mixed
@@ -68,6 +76,10 @@ class Request
         return \array_key_exists($key, $this->parameters);
     }
 
+    // ------------------------------------------------------------------
+    // Headers
+    // ------------------------------------------------------------------
+
     /**
      * @return array<string,string>
      */
@@ -77,11 +89,19 @@ class Request
         return $this->headers = $this->defineHeaders();
     }
 
+    // ------------------------------------------------------------------
+    // Method
+    // ------------------------------------------------------------------
+
     public function getMethod(): string
     {
         if ($this->method !== null) return $this->method;
         return $this->method = $this->defineMethod();
     }
+
+    // ------------------------------------------------------------------
+    // Path
+    // ------------------------------------------------------------------
 
     /**
      * /any/any...
@@ -92,14 +112,59 @@ class Request
         return $this->path = $this->definePath();
     }
 
+    /**
+     * @return string[]|array{}
+     */
+    public function getPathAsArray(): array
+    {
+        if ($this->path_array !== null) return $this->path_array;
+
+        $a = \trim($this->getPath(), '/');
+        if ($a === '') return $this->path_array = [];
+        $a = \explode('/', $a);
+        return $this->path_array = $a;
+    }
+
+    /**
+     * @param string|string[] $value
+     */
+    public function containsValueInPath(string|array $value): bool
+    {
+        if (!\is_array($value)) $value = [$value];
+        $path = $this->getPath() . '/';
+        foreach ($value as $v) {
+            if (!\str_contains($path, '/' . \trim(\strval($v), '/') . '/')) return false;
+        }
+        return true;
+    }
+
+    public function pathValueAtIndex(string $value, int $idx): bool
+    {
+        return ($this->getPathAsArray()[$idx] ?? null) === $value;
+    }
+
+    public function getValueByIndexFromPath(int $idx): ?string
+    {
+        return $this->getPathAsArray()[$idx] ?? null;
+    }
+
+    // ------------------------------------------------------------------
+    // Query
+    // ------------------------------------------------------------------
+
     public function getQueryBuilder(): QueryBuild
     {
         if ($this->query_build !== null) return $this->query_build;
         return $this->query_build = new QueryBuild($this->getPathAndQuery());
     }
 
+    public function getQuery(): string
+    {
+        return $this->getQueryBuilder()->getQuery(true);
+    }
+
     // ------------------------------------------------------------------
-    // ___
+    // protected
     // ------------------------------------------------------------------
 
     /**
@@ -151,18 +216,28 @@ class Request
      */
     protected function definePath(): string
     {
-        $uri = $this->getPathAndQuery();
-        $pos = \strpos($uri, '?');
-        if (\is_int($pos)) $uri = \substr($uri, 0, $pos);
-        return '/' . \trim($uri, '/');
+        $p = $this->getPathAndQuery();
+
+        if (false !== $pos = \strpos($p, '?')) {
+            $p = \substr($p, 0, $pos);
+        }
+
+        // делаем еще раз trim так как до символа "?" может быть "/", например "/admin/page/?param=value"
+        return '/' . \trim($p, '/');
     }
 
+    /**
+     * "/.../...(/?)?..."
+     */
     protected function getPathAndQuery(): string
     {
         if ($this->path_query !== null) return $this->path_query;
-        return $this->path_query = \rawurldecode($this->server['REQUEST_URI'] ?? '');
+        return $this->path_query = '/' . \trim(\rawurldecode($this->server['REQUEST_URI'] ?? ''), '/');
     }
 
+    /**
+     * ждем https://wiki.php.net/rfc/rfc1867-non-post
+     */
     protected function getInput(): array
     {
         $value = $this->getRawInput();
