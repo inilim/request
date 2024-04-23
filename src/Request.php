@@ -177,7 +177,7 @@ class Request
         if (\function_exists('getallheaders')) {
             $headers = \getallheaders();
             if ($headers !== false) {
-                return \array_change_key_case($headers, CASE_LOWER);
+                return \array_change_key_case($headers, \CASE_LOWER);
             }
         }
 
@@ -194,7 +194,7 @@ class Request
             }
         }
 
-        return \array_change_key_case($headers, CASE_LOWER);
+        return \array_change_key_case($headers, \CASE_LOWER);
     }
 
     protected function defineMethod(): string
@@ -242,7 +242,7 @@ class Request
     {
         $value = $this->getRawInput();
         if ($value === '') return [];
-        if (_json()->isJSON($value)) {
+        if (\_json()->isJSON($value)) {
             $value = \json_decode($value, true);
             if (!\is_array($value)) $value = [$value];
             return $value;
@@ -252,7 +252,7 @@ class Request
         if (!$inputs) return [];
         $post_keys = \array_keys($_POST ?? []);
         if ($post_keys) {
-            $inputs = _arr()->except($inputs, $post_keys);
+            $inputs = \_arr()->except($inputs, $post_keys);
         }
         return $inputs;
     }
