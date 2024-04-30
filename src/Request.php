@@ -257,6 +257,11 @@ class Request
         return $inputs;
     }
 
+    // protected function validQuery(string $value): bool
+    // {
+    //     return \filter_var('http://site.ru?' . $value, \FILTER_VALIDATE_URL, \FILTER_FLAG_QUERY_REQUIRED) !== false;
+    // }
+
     protected function getRawInput(): string
     {
         $value = @\file_get_contents('php://input');
