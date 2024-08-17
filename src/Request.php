@@ -4,12 +4,12 @@ namespace Inilim\Request;
 
 class Request
 {
-    protected ?array $headers          = null;
-    protected ?string $method          = null;
-    protected ?string $query           = null;
-    protected ?string $path_query      = null;
-    protected ?string $path            = null;
-    protected ?array $path_array       = null;
+    protected ?array $headers     = null;
+    protected ?string $method     = null;
+    protected ?string $query      = null;
+    protected ?string $path_query = null;
+    protected ?string $path       = null;
+    protected ?array $path_array  = null;
 
     protected array $server;
     protected array $cookie;
@@ -176,7 +176,7 @@ class Request
         if (\function_exists('getallheaders')) {
             $headers = \getallheaders();
             if ($headers !== false) {
-                return $headers;
+                return \array_change_key_case($headers, \CASE_UPPER);
             }
         }
 
