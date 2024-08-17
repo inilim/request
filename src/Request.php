@@ -6,25 +6,26 @@ use Inilim\QueryBuild\QueryBuild;
 
 class Request
 {
-    protected ?array $headers = null;
+    protected ?array $headers          = null;
     protected ?QueryBuild $query_build = null;
-    protected ?string $method = null;
-    protected ?string $path_query = null;
-    protected ?string $path = null;
-    protected ?array $path_array = null;
+    protected ?string $method          = null;
+    protected ?string $path_query      = null;
+    protected ?string $path            = null;
+    protected ?array $path_array       = null;
+
     protected array $server;
-    protected array $parameters;
     protected array $cookie;
+    protected array $files;
+    protected array $parameters;
 
-    public function __construct(bool $clear_global_vars = false)
+    function __construct(bool $clear_global_vars = false)
     {
-        // $_FILES - что с этим делать?
-
-        $this->cookie     = $_COOKIE ?? [];
-        $this->server     = &$_SERVER;
+        $this->cookie     = &$_COOKIE ?? [];
+        $this->server     = &$_SERVER ?? [];
+        $this->files      = &$_FILES ?? [];
         $this->parameters = \array_merge($_GET ?? [], $_POST ?? [], $this->getInput());
+
         if ($clear_global_vars) {
-            $_COOKIE = [];
             $_GET    = [];
             $_POST   = [];
         }
@@ -38,17 +39,17 @@ class Request
      * @param mixed $default
      * @return mixed
      */
-    public function getCookie(int|string $key, $default = null)
+    function getCookie(int|string $key, $default = null)
     {
         return $this->cookie[$key] ?? $default;
     }
 
-    public function hasCookie(int|string $key): bool
+    function hasCookie(int|string $key): bool
     {
         return \array_key_exists($key, $this->cookie);
     }
 
-    public function getCookies(): array
+    function getCookies(): array
     {
         return $this->cookie;
     }
@@ -61,17 +62,17 @@ class Request
      * @param mixed $default
      * @return mixed
      */
-    public function getParam(int|string $key, $default = null)
+    function getParam(int|string $key, $default = null)
     {
         return $this->parameters[$key] ?? $default;
     }
 
-    public function getParams(): array
+    function getParams(): array
     {
         return $this->parameters;
     }
 
-    public function hasParam(int|string $key): bool
+    function hasParam(int|string $key): bool
     {
         return \array_key_exists($key, $this->parameters);
     }
@@ -83,20 +84,19 @@ class Request
     /**
      * @return array<string,string>
      */
-    public function getHeaders(): array
+    function getHeaders(): array
     {
-        if ($this->headers !== null) return $this->headers;
-        return $this->headers = $this->defineHeaders();
+        return $this->headers ??= $this->defineHeaders();
+        // return $this->headers ??= $this->defineHeadersSymfony();
     }
 
     // ------------------------------------------------------------------
     // Method
     // ------------------------------------------------------------------
 
-    public function getMethod(): string
+    function getMethod(): string
     {
-        if ($this->method !== null) return $this->method;
-        return $this->method = $this->defineMethod();
+        return $this->method ??= $this->defineMethod();
     }
 
     // ------------------------------------------------------------------
@@ -106,19 +106,17 @@ class Request
     /**
      * /any/any...
      */
-    public function getPath(): string
+    function getPath(): string
     {
-        if ($this->path !== null) return $this->path;
-        return $this->path = $this->definePath();
+        return $this->path ??= $this->definePath();
     }
 
     /**
      * @return string[]|array{}
      */
-    public function getPathAsArray(): array
+    function getPathAsArray(): array
     {
         if ($this->path_array !== null) return $this->path_array;
-
         $a = \trim($this->getPath(), '/');
         if ($a === '') return $this->path_array = [];
         $a = \explode('/', $a);
@@ -128,22 +126,24 @@ class Request
     /**
      * @param string|string[] $value
      */
-    public function containsValueInPath(string|array $value): bool
+    function containsValueInPath(string|array $value): bool
     {
         if (!\is_array($value)) $value = [$value];
         $path = $this->getPath() . '/';
         foreach ($value as $v) {
-            if (!\str_contains($path, '/' . \trim(\strval($v), '/') . '/')) return false;
+            if (!\str_contains($path, '/' . \trim(\strval($v), '/') . '/')) {
+                return false;
+            }
         }
         return true;
     }
 
-    public function pathValueAtIndex(string $value, int $idx): bool
+    function pathValueAtIndex(string $value, int $idx): bool
     {
         return ($this->getPathAsArray()[$idx] ?? null) === $value;
     }
 
-    public function getValueByIndexFromPath(int $idx): ?string
+    function getValueByIndexFromPath(int $idx): ?string
     {
         return $this->getPathAsArray()[$idx] ?? null;
     }
@@ -152,13 +152,12 @@ class Request
     // Query
     // ------------------------------------------------------------------
 
-    public function getQueryBuilder(): QueryBuild
+    function getQueryBuilder(): QueryBuild
     {
-        if ($this->query_build !== null) return $this->query_build;
-        return $this->query_build = new QueryBuild($this->getPathAndQuery());
+        return $this->query_build ??= new QueryBuild($this->getPathAndQuery());
     }
 
-    public function getQuery(): string
+    function getQuery(): string
     {
         return $this->getQueryBuilder()->getQuery(true);
     }
@@ -177,7 +176,7 @@ class Request
         if (\function_exists('getallheaders')) {
             $headers = \getallheaders();
             if ($headers !== false) {
-                return \array_change_key_case($headers, \CASE_LOWER);
+                return $headers;
             }
         }
 
@@ -194,7 +193,79 @@ class Request
             }
         }
 
-        return \array_change_key_case($headers, \CASE_LOWER);
+        return $headers;
+    }
+
+    protected function defineHeadersSymfony(): array
+    {
+        $headers = [];
+        foreach ($this->server as $key => $value) {
+            if (\str_starts_with($key, 'HTTP_')) {
+                $headers[\substr($key, 5)] = $value;
+            } elseif (\in_array($key, ['CONTENT_TYPE', 'CONTENT_LENGTH', 'CONTENT_MD5'], true) && '' !== $value) {
+                $headers[$key] = $value;
+            }
+        }
+
+        if (isset($this->server['PHP_AUTH_USER'])) {
+            $headers['PHP_AUTH_USER'] = $this->server['PHP_AUTH_USER'];
+            $headers['PHP_AUTH_PW'] = $this->server['PHP_AUTH_PW'] ?? '';
+        } else {
+            /*
+             * php-cgi under Apache does not pass HTTP Basic user/pass to PHP by default
+             * For this workaround to work, add these lines to your .htaccess file:
+             * RewriteCond %{HTTP:Authorization} .+
+             * RewriteRule ^ - [E=HTTP_AUTHORIZATION:%0]
+             *
+             * A sample .htaccess file:
+             * RewriteEngine On
+             * RewriteCond %{HTTP:Authorization} .+
+             * RewriteRule ^ - [E=HTTP_AUTHORIZATION:%0]
+             * RewriteCond %{REQUEST_FILENAME} !-f
+             * RewriteRule ^(.*)$ index.php [QSA,L]
+             */
+
+            $authorizationHeader = null;
+            if (isset($this->server['HTTP_AUTHORIZATION'])) {
+                $authorizationHeader = $this->server['HTTP_AUTHORIZATION'];
+            } elseif (isset($this->server['REDIRECT_HTTP_AUTHORIZATION'])) {
+                $authorizationHeader = $this->server['REDIRECT_HTTP_AUTHORIZATION'];
+            }
+
+            if (null !== $authorizationHeader) {
+                if (0 === \stripos($authorizationHeader, 'basic ')) {
+                    // Decode AUTHORIZATION header into PHP_AUTH_USER and PHP_AUTH_PW when authorization header is basic
+                    $exploded = \explode(':', \base64_decode(\substr($authorizationHeader, 6)), 2);
+                    if (2 == \count($exploded)) {
+                        [$headers['PHP_AUTH_USER'], $headers['PHP_AUTH_PW']] = $exploded;
+                    }
+                } elseif (empty($this->server['PHP_AUTH_DIGEST']) && (0 === \stripos($authorizationHeader, 'digest '))) {
+                    // In some circumstances PHP_AUTH_DIGEST needs to be set
+                    $headers['PHP_AUTH_DIGEST'] = $authorizationHeader;
+                    $this->server['PHP_AUTH_DIGEST'] = $authorizationHeader;
+                } elseif (0 === \stripos($authorizationHeader, 'bearer ')) {
+                    /*
+                     * XXX: Since there is no PHP_AUTH_BEARER in PHP predefined variables,
+                     *      I'll just set $headers['AUTHORIZATION'] here.
+                     *      https://php.net/reserved.variables.server
+                     */
+                    $headers['AUTHORIZATION'] = $authorizationHeader;
+                }
+            }
+        }
+
+        if (isset($headers['AUTHORIZATION'])) {
+            return $headers;
+        }
+
+        // PHP_AUTH_USER/PHP_AUTH_PW
+        if (isset($headers['PHP_AUTH_USER'])) {
+            $headers['AUTHORIZATION'] = 'Basic ' . \base64_encode($headers['PHP_AUTH_USER'] . ':' . ($headers['PHP_AUTH_PW'] ?? ''));
+        } elseif (isset($headers['PHP_AUTH_DIGEST'])) {
+            $headers['AUTHORIZATION'] = $headers['PHP_AUTH_DIGEST'];
+        }
+
+        return $headers;
     }
 
     protected function defineMethod(): string
@@ -203,8 +274,8 @@ class Request
 
         if ($method == 'POST') {
             $headers = $this->getHeaders();
-            if (isset($headers['x-http-method-override']) && \in_array($headers['x-http-method-override'], ['PUT', 'DELETE', 'PATCH'])) {
-                $method = $headers['x-http-method-override'];
+            if (isset($headers['X-HTTP-METHOD-OVERRIDE']) && \in_array($headers['X-HTTP-METHOD-OVERRIDE'], ['PUT', 'DELETE', 'PATCH'])) {
+                $method = $headers['X-HTTP-METHOD-OVERRIDE'];
             }
         }
 
@@ -231,8 +302,7 @@ class Request
      */
     protected function getPathAndQuery(): string
     {
-        if ($this->path_query !== null) return $this->path_query;
-        return $this->path_query = '/' . \trim(\rawurldecode($this->server['REQUEST_URI'] ?? ''), '/');
+        return $this->path_query ??= '/' . \trim(\rawurldecode($this->server['REQUEST_URI'] ?? ''), '/');
     }
 
     /**
