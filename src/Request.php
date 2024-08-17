@@ -2,12 +2,9 @@
 
 namespace Inilim\Request;
 
-use Inilim\QueryBuild\QueryBuild;
-
 class Request
 {
     protected ?array $headers          = null;
-    protected ?QueryBuild $query_build = null;
     protected ?string $method          = null;
     protected ?string $path_query      = null;
     protected ?string $path            = null;
@@ -146,20 +143,6 @@ class Request
     function getValueByIndexFromPath(int $idx): ?string
     {
         return $this->getPathAsArray()[$idx] ?? null;
-    }
-
-    // ------------------------------------------------------------------
-    // Query
-    // ------------------------------------------------------------------
-
-    function getQueryBuilder(): QueryBuild
-    {
-        return $this->query_build ??= new QueryBuild($this->getPathAndQuery());
-    }
-
-    function getQuery(): string
-    {
-        return $this->getQueryBuilder()->getQuery(true);
     }
 
     // ------------------------------------------------------------------
