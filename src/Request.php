@@ -6,6 +6,7 @@ class Request
 {
     protected ?array $headers          = null;
     protected ?string $method          = null;
+    protected ?string $query           = null;
     protected ?string $path_query      = null;
     protected ?string $path            = null;
     protected ?array $path_array       = null;
@@ -143,6 +144,22 @@ class Request
     function getValueByIndexFromPath(int $idx): ?string
     {
         return $this->getPathAsArray()[$idx] ?? null;
+    }
+
+    // ------------------------------------------------------------------
+    // Query
+    // ------------------------------------------------------------------
+
+    /**
+     * key=value&...
+     */
+    function getQuery(): string
+    {
+        return \explode(
+            '?',
+            $this->getPathAndQuery(),
+            1
+        )[1] ?? '';
     }
 
     // ------------------------------------------------------------------
@@ -289,7 +306,8 @@ class Request
     }
 
     /**
-     * ждем https://wiki.php.net/rfc/rfc1867-non-post
+     * ждем request_parse_body
+     * @see https://wiki.php.net/rfc/rfc1867-non-post
      */
     protected function getInput(): array
     {
