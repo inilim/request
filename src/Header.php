@@ -20,6 +20,6 @@ class Header
 
     function getUserAgent(): string
     {
-        return $this->request->getHeader(static::HOST, '');
+        return $this->request->getHeader(static::USER_AGENT, '');
     }
 }
