@@ -184,12 +184,12 @@ class Request
 
     function getServer(string $name, $default = null)
     {
-        return $this->server[\strtoupper($name)] ?? $default;
+        return $this->server[$name] ?? $default;
     }
 
     function hasServer(string $name): bool
     {
-        return \array_key_exists(\strtoupper($name), $this->server);
+        return \array_key_exists($name, $this->server);
     }
 
     // ------------------------------------------------------------------
