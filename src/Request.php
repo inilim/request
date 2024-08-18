@@ -169,7 +169,7 @@ class Request
         return $this->query ??= \explode(
             '?',
             $this->getPathAndQuery(),
-            1
+            2
         )[1] ?? '';
     }
 
