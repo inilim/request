@@ -174,6 +174,25 @@ class Request
     }
 
     // ------------------------------------------------------------------
+    // Server
+    // ------------------------------------------------------------------
+
+    function getAllServer(): array
+    {
+        return $this->server;
+    }
+
+    function getServer(string $name, $default = null)
+    {
+        return $this->server[\strtoupper($name)] ?? $default;
+    }
+
+    function hasServer(string $name): bool
+    {
+        return \array_key_exists(\strtoupper($name), $this->server);
+    }
+
+    // ------------------------------------------------------------------
     // protected
     // ------------------------------------------------------------------
 
