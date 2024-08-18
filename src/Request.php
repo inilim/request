@@ -88,6 +88,16 @@ class Request
         // return $this->headers ??= $this->defineHeadersSymfony();
     }
 
+    function getHeader(string $name, $default = null)
+    {
+        return $this->getHeaders()[\strtoupper($name)] ?? $default;
+    }
+
+    function hasHeader(string $name): bool
+    {
+        return \array_key_exists(\strtoupper($name), $this->getHeaders());
+    }
+
     // ------------------------------------------------------------------
     // Method
     // ------------------------------------------------------------------
@@ -115,6 +125,7 @@ class Request
     function getPathAsArray(): array
     {
         if ($this->path_array !== null) return $this->path_array;
+
         $a = \trim($this->getPath(), '/');
         if ($a === '') return $this->path_array = [];
         $a = \explode('/', $a);
@@ -141,9 +152,9 @@ class Request
         return ($this->getPathAsArray()[$idx] ?? null) === $value;
     }
 
-    function getValueByIndexFromPath(int $idx): ?string
+    function getValueByIndexFromPath(int $idx, $default = null)
     {
-        return $this->getPathAsArray()[$idx] ?? null;
+        return $this->getPathAsArray()[$idx] ?? $default;
     }
 
     // ------------------------------------------------------------------
@@ -155,7 +166,7 @@ class Request
      */
     function getQuery(): string
     {
-        return \explode(
+        return $this->query ??= \explode(
             '?',
             $this->getPathAndQuery(),
             1
