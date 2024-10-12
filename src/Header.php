@@ -9,9 +9,13 @@ final class Header
     const HOST       = 'HOST';
     const USER_AGENT = 'USER-AGENT';
 
+    protected Request $request;
+
     function __construct(
-        public readonly Request $request,
-    ) {}
+        Request $request
+    ) {
+        $this->request = $request;
+    }
 
     function getHost(): string
     {
@@ -21,5 +25,10 @@ final class Header
     function getUserAgent(): string
     {
         return $this->request->getHeader(static::USER_AGENT, '');
+    }
+
+    function getRequest(): Request
+    {
+        return $this->request;
     }
 }

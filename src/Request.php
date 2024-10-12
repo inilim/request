@@ -4,26 +4,26 @@ namespace Inilim\Request;
 
 final class Request
 {
-    protected ?array $headers     = null;
-    protected ?string $method     = null;
-    protected ?string $query      = null;
-    protected ?string $path_query = null;
-    protected ?string $path       = null;
-    protected ?array $path_array  = null;
+    protected ?array $headers    = null;
+    protected ?string $method    = null;
+    protected ?string $query     = null;
+    protected ?string $pathQuery = null;
+    protected ?string $path      = null;
+    protected ?array $pathArray  = null;
 
     protected array $server;
     protected array $cookie;
     protected array $files;
     protected array $parameters;
 
-    function __construct(bool $clear_global_vars = false)
+    function __construct(bool $clearGlobalVars = false)
     {
         $this->cookie     = &$_COOKIE ?? [];
         $this->server     = &$_SERVER ?? [];
         $this->files      = &$_FILES ?? [];
         $this->parameters = \array_merge($_GET ?? [], $_POST ?? [], $this->getInput());
 
-        if ($clear_global_vars) {
+        if ($clearGlobalVars) {
             $_GET    = [];
             $_POST   = [];
         }
@@ -132,12 +132,12 @@ final class Request
      */
     function getPathAsArray(): array
     {
-        if ($this->path_array !== null) return $this->path_array;
+        if ($this->pathArray !== null) return $this->pathArray;
 
         $a = \trim($this->getPath(), '/');
-        if ($a === '') return $this->path_array = [];
+        if ($a === '') return $this->pathArray = [];
         $a = \explode('/', $a);
-        return $this->path_array = $a;
+        return $this->pathArray = $a;
     }
 
     /**
@@ -341,7 +341,7 @@ final class Request
      */
     protected function getPathAndQuery(): string
     {
-        return $this->path_query ??= '/' . \trim(\rawurldecode($this->server['REQUEST_URI'] ?? ''), '/');
+        return $this->pathQuery ??= '/' . \trim(\rawurldecode($this->server['REQUEST_URI'] ?? ''), '/');
     }
 
     /**
@@ -350,7 +350,7 @@ final class Request
      */
     protected function getInput(): array
     {
-        $value = $this->getRawInput();
+        $value = $this->getPhpInput();
         if ($value === '') return [];
         if (\_json()->isJSON($value)) {
             $value = \json_decode($value, true);
@@ -360,9 +360,10 @@ final class Request
         $inputs = [];
         \parse_str($value, $inputs);
         if (!$inputs) return [];
-        $post_keys = \array_keys($_POST ?? []);
-        if ($post_keys) {
-            $inputs = \_arr()->except($inputs, $post_keys);
+        $postKeys = \array_keys($_POST ?? []);
+        if ($postKeys) {
+            // \_arr()->except($inputs, $postKeys);
+            $inputs = \array_diff_key($inputs, \array_flip($postKeys));
         }
         return $inputs;
     }
@@ -372,7 +373,7 @@ final class Request
     //     return \filter_var('http://site.ru?' . $value, \FILTER_VALIDATE_URL, \FILTER_FLAG_QUERY_REQUIRED) !== false;
     // }
 
-    protected function getRawInput(): string
+    protected function getPhpInput(): string
     {
         $value = @\file_get_contents('php://input');
         if ($value === false) return '';
