@@ -2,7 +2,7 @@
 
 namespace Inilim\Request;
 
-class Request
+final class Request
 {
     protected ?array $headers     = null;
     protected ?string $method     = null;
@@ -35,14 +35,18 @@ class Request
 
     /**
      * @param mixed $default
+     * @param int|string $key
      * @return mixed
      */
-    function getCookie(int|string $key, $default = null)
+    function getCookie($key, $default = null)
     {
         return $this->cookie[$key] ?? $default;
     }
 
-    function hasCookie(int|string $key): bool
+    /**
+     * @param int|string $key
+     */
+    function hasCookie($key): bool
     {
         return \array_key_exists($key, $this->cookie);
     }
@@ -58,9 +62,10 @@ class Request
 
     /**
      * @param mixed $default
+     * @param int|string $key
      * @return mixed
      */
-    function getParam(int|string $key, $default = null)
+    function getParam($key, $default = null)
     {
         return $this->parameters[$key] ?? $default;
     }
@@ -70,7 +75,10 @@ class Request
         return $this->parameters;
     }
 
-    function hasParam(int|string $key): bool
+    /**
+     * @param int|string $key
+     */
+    function hasParam($key): bool
     {
         return \array_key_exists($key, $this->parameters);
     }
@@ -135,12 +143,13 @@ class Request
     /**
      * @param string|string[] $value
      */
-    function containsValueInPath(string|array $value): bool
+    function containsValueInPath($value): bool
     {
         if (!\is_array($value)) $value = [$value];
         $path = $this->getPath() . '/';
         foreach ($value as $v) {
-            if (!\str_contains($path, '/' . \trim(\strval($v), '/') . '/')) {
+            $needle = '/' . \trim(\strval($v), '/') . '/';
+            if (\mb_strpos($path, $needle, 0, 'UTF-8') === false) {
                 return false;
             }
         }
@@ -213,7 +222,7 @@ class Request
         foreach ($this->server as $name => $value) {
             /** @var string $name */
             if (
-                ($http = \str_starts_with($name, 'HTTP_'))
+                ($http = (\strpos($name, 'HTTP_') === 0))
                 ||
                 $name == 'CONTENT_TYPE' || $name == 'CONTENT_LENGTH'
             ) {
@@ -230,7 +239,7 @@ class Request
     {
         $headers = [];
         foreach ($this->server as $key => $value) {
-            if (\str_starts_with($key, 'HTTP_')) {
+            if (\strpos($key, 'HTTP_') === 0) {
                 $headers[\substr($key, 5)] = $value;
             } elseif (\in_array($key, ['CONTENT_TYPE', 'CONTENT_LENGTH', 'CONTENT_MD5'], true) && '' !== $value) {
                 $headers[$key] = $value;

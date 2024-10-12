@@ -4,7 +4,7 @@ namespace Inilim\Request;
 
 use Inilim\Request\Request;
 
-class Header
+final class Header
 {
     const HOST       = 'HOST';
     const USER_AGENT = 'USER-AGENT';
