@@ -6,6 +6,7 @@ use Inilim\Tool\Arr;
 use Inilim\Tool\Str;
 use Inilim\Tool\Json;
 use Inilim\Tool\Other;
+use Inilim\Request\Headers;
 
 final class Request
 {
@@ -223,6 +224,14 @@ final class Request
     // ------------------------------------------------------------------
     // Headers
     // ------------------------------------------------------------------
+
+    /**
+     * @return Headers
+     */
+    function getHeadersAsObj()
+    {
+        return new Headers($this);
+    }
 
     /**
      * @return array<string,string>
