@@ -44,13 +44,12 @@ final class Request
 
     function __construct(array $get = [], array $post = [], array $cookies = [], array $files = [], array $server = [])
     {
-        $this->cookie = $cookies;
-        $this->server = $server;
-
-        $this->keysFromGet    = \array_keys($get);
-        $this->keysFromPost   = \array_keys($post);
-        $this->parameters = \array_merge($get, $post);
-        $this->files      = $files;
+        $this->cookie       = $cookies;
+        $this->server       = $server;
+        $this->keysFromGet  = \array_keys($get);
+        $this->keysFromPost = \array_keys($post);
+        $this->parameters   = \array_merge($get, $post);
+        $this->files        = $files;
 
         $rest = \in_array($this->getMethod(), ['PUT', 'PATCH', 'DELETE'], true);
 
