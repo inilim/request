@@ -16,8 +16,8 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
-        "php": "^7.4 | ^8.2",
-        "inilim/json_helper": "dev-main_7_4"
+        "php": ">=7.4",
+        "inilim/tools": "dev-main"
     },
     "require-dev": {
         "phpstan/phpstan": "@stable",

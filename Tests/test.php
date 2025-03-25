@@ -7,8 +7,13 @@ use Inilim\Request\Request;
 
 Dump::init();
 
-$a = new Request;
+$a = Request::createFromGlobals();
 
-// $headers = $a->getHeaders();
+$a->getHeaders();
+
+// de($a->getHeader('host'));
+
+// de($a->getParam('2'));
+// de($a->getQuery());
 
 de($a);
