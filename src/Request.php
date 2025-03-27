@@ -7,6 +7,7 @@ use Inilim\Tool\Str;
 use Inilim\Tool\Json;
 use Inilim\Tool\Other;
 use Inilim\Request\Headers;
+use Inilim\Request\DecodeFormData;
 
 final class Request
 {
@@ -32,16 +33,28 @@ final class Request
     /**
      * @var string[]
      */
-    protected array $keysFromGet  = [];
+    protected $keysFromGet  = [];
     /**
      * @var string[]
      */
-    protected array $keysFromPost = [];
+    protected $keysFromPost = [];
 
-    protected array $server;
-    protected array $cookie;
-    protected array $files;
-    protected array $parameters;
+    /**
+     * @var array
+     */
+    protected $server;
+    /**
+     * @var array
+     */
+    protected $cookie;
+    /**
+     * @var array
+     */
+    protected $files;
+    /**
+     * @var array
+     */
+    protected $parameters;
 
     function __construct(array $get = [], array $post = [], array $cookies = [], array $files = [], array $server = [])
     {
@@ -100,7 +113,7 @@ final class Request
                     $this->rawInputHandler = true;
                 } elseif (Str::_startsWith($contentType, 'multipart/form-data')) {
                     [$post, $files] = Other::tryCallWithErrHandler(function () {
-                        return $this->decodeFormData();
+                        return (new DecodeFormData)->__invoke($this->rawInput);
                     }, null);
                     if (\is_array($files) && $files) {
                         $this->files = $files;
@@ -260,9 +273,10 @@ final class Request
     }
 
     /**
+     * @param string $name
      * @return string
      */
-    protected function normalizeNameHeader(string $name)
+    protected function normalizeNameHeader($name)
     {
         return \strtoupper(\strtr($name, '_', '-'));
     }
@@ -293,11 +307,13 @@ final class Request
     }
 
     /**
-     * @return string[]|array{}
+     * @return string[]
      */
     function getPathAsArray()
     {
-        if ($this->pathArray !== null) return $this->pathArray;
+        if ($this->pathArray !== null) {
+            return $this->pathArray;
+        }
 
         $a = \trim($this->getPath(), '/');
         if ($a === '') return $this->pathArray = [];
@@ -311,11 +327,13 @@ final class Request
      */
     function containsValueInPath($value)
     {
-        if (!\is_array($value)) $value = [$value];
+        if (!\is_array($value)) $value = [\strval($value)];
+
         $path = $this->getPath() . '/';
         foreach ($value as $v) {
             $needle = '/' . \trim(\strval($v), '/') . '/';
-            if (\mb_strpos($path, $needle, 0, 'UTF-8') === false) {
+            // if (\mb_strpos($path, $needle, 0, 'UTF-8') === false) {
+            if (!Str::_contains($path, $needle)) {
                 return false;
             }
         }
@@ -374,7 +392,7 @@ final class Request
      */
     function getServer(string $name, $default = null)
     {
-        return $this->server[$name] ?? $default;
+        return $this->server[$this->normalizeNameServer($name)] ?? $default;
     }
 
     /**
@@ -382,7 +400,16 @@ final class Request
      */
     function hasServer(string $name)
     {
-        return \array_key_exists($name, $this->server);
+        return \array_key_exists($this->normalizeNameServer($name), $this->server);
+    }
+
+    /**
+     * @param string $name
+     * @return string
+     */
+    protected function normalizeNameServer($name)
+    {
+        return \strtoupper(\strtr($name, '-', '_'));
     }
 
     // ------------------------------------------------------------------
@@ -430,93 +457,5 @@ final class Request
     protected function getPathAndQuery()
     {
         return $this->pathQuery ??= '/' . \trim(\rawurldecode($this->server['REQUEST_URI'] ?? ''), '/');
-    }
-
-    protected function decodeFormData()
-    {
-        $files  = [];
-        $data   = [];
-        $unlink = [];
-        // Fetch content and determine boundary
-        $boundary = \substr($this->rawInput, 0, \strpos($this->rawInput, "\r\n"));
-        // Fetch and process each part
-        $parts = $this->rawInput ? \array_slice(\explode($boundary, $this->rawInput), 1) : [];
-        foreach ($parts as &$part) {
-            // If this is the last part, break
-            if ($part == "--\r\n") {
-                break;
-            }
-            // Separate content from headers
-            $part = \ltrim($part, "\r\n");
-            [$rawHeaders, $content] = \explode("\r\n\r\n", $part, 2);
-            $part = '';
-            $content = \substr($content, 0, \strlen($content) - 2);
-            // Parse the headers list
-            $rawHeaders = \explode("\r\n", $rawHeaders);
-            $headers    = [];
-            foreach ($rawHeaders as $header) {
-                [$name, $value] = \explode(':', $header);
-                $headers[\strtolower($name)] = \ltrim($value, ' ');
-            }
-            // Parse the Content-Disposition to get the field name, etc.
-            if (isset($headers['content-disposition'])) {
-                $filename = null;
-                \preg_match(
-                    '/^form-data; *name="([^"]+)"(; *filename="([^"]+)")?/',
-                    $headers['content-disposition'],
-                    $matches
-                );
-                $fieldName = $matches[1];
-                $fileName  = (isset($matches[3]) ? $matches[3] : null);
-                // If we have a file, save it. Otherwise, save the data.
-                if ($fileName !== null) {
-                    $localFileName = \tempnam(\sys_get_temp_dir(), 'sfy');
-                    if ($localFileName === false) {
-                        continue;
-                    }
-                    $unlink[] = $localFileName;
-                    $putStatus = \file_put_contents($localFileName, $content);
-                    if ($putStatus === false) {
-                        continue;
-                    }
-                    $files = $this->transformData($files, $fieldName, [
-                        'name'     => $fileName,
-                        'type'     => $headers['content-type'],
-                        'tmp_name' => $localFileName,
-                        'error'    => 0,
-                        'size'     => \filesize($localFileName)
-                    ]);
-                } else {
-                    $data = $this->transformData($data, $fieldName, $content);
-                }
-            } // endif
-        } // endforeach
-
-        if ($unlink) {
-            // register a shutdown function to cleanup the temporary file
-            \register_shutdown_function(static function () use ($unlink) {
-                foreach ($unlink as &$file) {
-                    @\unlink($file);
-                }
-            });
-        }
-
-        return [$data, $files];
-    }
-
-    /**
-     * @param mixed $value
-     * @return array<string,mixed>
-     */
-    protected function transformData(array $data, string $name, $value)
-    {
-        $isArray = \strpos($name, '[]');
-        if ($isArray && (($isArray + 2) == \strlen($name))) {
-            $name = \str_replace('[]', '', $name);
-            $data[$name][] = $value;
-        } else {
-            $data[$name] = $value;
-        }
-        return $data;
     }
 }
